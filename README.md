@@ -167,11 +167,10 @@ RequestInfo memory info = agent.getRequestInfo(requestId);
 
 ## Examples Included
 
-### 1. ExampleAgent
-- **Purpose**: Demonstrates basic agent functionality
-- **Features**: Rotates through different question types
-- **Schemas**: Market prediction, general analysis, sentiment
-- **Good for**: Learning the template basics
+### 1. Payer
+- **Purpose**: Shows how to pay a payee a fixed amount of tokens every X blocks for Y times. Customizable.
+- **Features**: Payee can be any address. Token can be native ETX or any ERC20 token.
+- **Good for**: Understanding how to use deferred execution in business logic.
 
 ### 2. SimpleBettingAgent
 - **Purpose**: Shows advanced betting agent for prediction markets
