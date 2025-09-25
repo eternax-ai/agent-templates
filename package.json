@@ -1,0 +1,22 @@
+{
+  "name": "eternax-agents-templates",
+  "version": "1.0.0",
+  "description": "Templates for eternaX autonomous on-chainagents",
+  "main": "index.js",
+  "scripts": {
+    "compile": "hardhat compile",
+    "deploy": "hardhat run scripts/deploy-example-agent.js --network testnet1"
+  },
+  "dependencies": {
+    "@openzeppelin/contracts": "^5.4.0",
+    "@openzeppelin/contracts-upgradeable": "^5.4.0",
+    "axios": "^1.12.2",
+    "ethereum-input-data-decoder": "^0.4.2",
+    "ethers": "^6.15.0",
+    "express": "^5.1.0"
+  },
+  "devDependencies": {
+    "@nomicfoundation/hardhat-toolbox": "^6.1.0",
+    "hardhat": "^2.26.0"
+  }
+}
