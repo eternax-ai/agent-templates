@@ -29,7 +29,9 @@ scripts/
 └── deploy-example-agent.js # Deployment script
 
 docs/
-└── AGENT_DEVELOPMENT_GUIDE.md  # Complete guide
+├── AGENT_DEVELOPMENT_GUIDE.md  # Complete guide
+├── ETERNAX_PRECOMPILES.md      # Precompiles documentation
+└── SCHEMA_CALLBACK.md          # Schema-based callback documentation
 ```
 
 ## How to Create Your Agent
