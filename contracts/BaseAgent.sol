@@ -218,7 +218,7 @@ abstract contract BaseAgent {
         try scheduler.scheduleRecurringCall(
             targetBlock,
             address(this),
-            0, // no ETH value
+            0, // no ETX value
             abi.encodeWithSignature("executeAgentLogic()"),
             1000000, // gas limit
             0, // auto-assign nonce

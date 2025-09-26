@@ -90,7 +90,7 @@ contract Payer {
         try IScheduler(SCHEDULER_PRECOMPILE).scheduleRecurringCall(
             targetBlock,         // target block number
             address(this),       // target contract (this contract)
-            0,                   // no ETH value
+            0,                   // no ETX value
             abi.encodePacked(functionSelector), // function call data
             100000,              // gas limit
             0,                   // auto-assign nonce
