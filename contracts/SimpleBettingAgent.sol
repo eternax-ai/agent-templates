@@ -49,7 +49,6 @@ contract SimpleBettingAgent is BaseAgent {
         uint256 minConfidence; // minimum confidence to place bet (0-100)
         uint256 riskThreshold; // maximum risk level (0-100)
         bool enableHighRiskBets;
-        uint256 maxActivePositions;
     }
     
     // External contracts
@@ -57,9 +56,15 @@ contract SimpleBettingAgent is BaseAgent {
     IPredictionMarket public predictionMarket;
     
     // Betting state
-    mapping(bytes32 => BetPosition) public positions; // marketId => position
+    uint256 public constant POSITIONS_MAX = 20;
+    BetPosition[POSITIONS_MAX] private positions; // Fixed array for up to 20 positions
+    uint256 private positionCount; // Current number of active positions
+    uint256 public constant POSITION_CLEANUP_AGE = 2 hours; // Clean up positions
+    
+    // Request tracking
     mapping(bytes32 => bytes32) private requestToMarket; // requestId => marketId
-    mapping(bytes32 => bool) private positionTaken; // marketId => has position been taken
+    
+
     BettingConfig public bettingConfig;
     
     uint256 public totalBetsPlaced;
@@ -93,8 +98,7 @@ contract SimpleBettingAgent is BaseAgent {
             maxBetSize: 5e18, // 5 ETX max bet
             minConfidence: 70, // 70% minimum confidence
             riskThreshold: 80, // 80% max risk tolerance
-            enableHighRiskBets: false,
-            maxActivePositions: 3
+            enableHighRiskBets: false
         });
         
         totalBetsPlaced = 0;
@@ -116,6 +120,7 @@ contract SimpleBettingAgent is BaseAgent {
         if (address(this).balance < MINIMUM_BET) {
             return false; // Not enough funds to bet
         }
+        
         
         // Do market analysis and betting
         return _analyzeAvailableMarkets();
@@ -170,7 +175,7 @@ contract SimpleBettingAgent is BaseAgent {
         }
         
         // Check if we already have a position on this market
-        if (positionTaken[marketId]) {
+        if (_isPositionTaken(marketId)) {
             return; // Already bet on this market
         }
         
@@ -200,9 +205,94 @@ contract SimpleBettingAgent is BaseAgent {
                bettingConfig.maxBetSize <= MAXIMUM_BET &&
                bettingConfig.minConfidence <= 100 &&
                bettingConfig.riskThreshold <= 100 &&
-               bettingConfig.maxActivePositions > 0 &&
                address(marketOracle) != address(0) &&
                address(predictionMarket) != address(0);
+    }
+    
+    // =============================================================================
+    // OPTIMIZED POSITION TRACKING FUNCTIONS
+    // =============================================================================
+    
+    /**
+     * @dev Check if a market position is already taken
+     * @param marketId The market ID to check
+     * @return True if position is taken, false otherwise
+     */
+    function _isPositionTaken(bytes32 marketId) internal view returns (bool) {
+        for (uint i = 0; i < POSITIONS_MAX; i++) {
+            if (positions[i].isActive && positions[i].marketId == marketId) {
+                return true;
+            }
+        }
+        return false;
+    }
+    
+    /**
+     * @dev Add a new position to the positions array
+     * @param marketId The market ID
+     * @param amount The bet amount
+     * @param prediction The prediction (true for YES, false for NO)
+     * @param confidence The confidence level
+     * @param reason The reasoning
+     */
+    function _addPosition(bytes32 marketId, uint256 amount, bool prediction, uint256 confidence, string memory reason) internal {
+        // First, try to clean up old positions and find a free slot
+        for (uint i = 0; i < POSITIONS_MAX; i++) {
+            if (!positions[i].isActive) {
+                // Found a free slot
+                positions[i] = BetPosition({
+                    marketId: marketId,
+                    isActive: true,
+                    amount: amount,
+                    prediction: prediction,
+                    entryTime: block.timestamp,
+                    reasoning: reason,
+                    confidence: confidence
+                });
+                positionCount++;
+                return;
+            }
+            else if (block.timestamp - positions[i].entryTime > POSITION_CLEANUP_AGE) {
+                // Clean up old position and use this slot
+                positions[i].isActive = false;
+                positionCount--;
+                
+                // Use this slot for the new position
+                positions[i] = BetPosition({
+                    marketId: marketId,
+                    isActive: true,
+                    amount: amount,
+                    prediction: prediction,
+                    entryTime: block.timestamp,
+                    reasoning: reason,
+                    confidence: confidence
+                });
+                positionCount++;
+                return;
+            }
+        }
+        
+        // If no free slots and no old positions to clean, replace the oldest
+        uint256 oldestIndex = 0;
+        uint256 oldestTimestamp = positions[0].entryTime;
+        
+        for (uint i = 1; i < POSITIONS_MAX; i++) {
+            if (positions[i].isActive && positions[i].entryTime < oldestTimestamp) {
+                oldestIndex = i;
+                oldestTimestamp = positions[i].entryTime;
+            }
+        }
+        
+        // Replace the oldest position
+        positions[oldestIndex] = BetPosition({
+            marketId: marketId,
+            isActive: true,
+            amount: amount,
+            prediction: prediction,
+            entryTime: block.timestamp,
+            reasoning: reason,
+            confidence: confidence
+        });
     }
     
     // =============================================================================
@@ -277,21 +367,12 @@ contract SimpleBettingAgent is BaseAgent {
         require(amount >= MINIMUM_BET && amount <= bettingConfig.maxBetSize, "Invalid bet amount");
         require(confidence >= bettingConfig.minConfidence, "Confidence too low");
         require(address(this).balance >= amount, "Insufficient balance");
-        require(!positionTaken[marketId], "Already have position on this market");
+        require(!_isPositionTaken(marketId), "Already have position on this market");
         
         try predictionMarket.takePosition{value: amount}(marketId, isYes) {
-            // Record the position
-            positions[marketId] = BetPosition({
-                marketId: marketId,
-                isActive: true,
-                amount: amount,
-                prediction: isYes,
-                entryTime: block.timestamp,
-                reasoning: reason,
-                confidence: confidence
-            });
+            // Record the position using optimized tracking
+            _addPosition(marketId, amount, isYes, confidence, reason);
             
-            positionTaken[marketId] = true;
             totalBetsPlaced++;
             
             emit BetPlaced(marketId, isYes, amount, confidence, reason);
@@ -309,7 +390,7 @@ contract SimpleBettingAgent is BaseAgent {
         try marketOracle.getPendingMarkets() returns (bytes32[] memory pendingMarkets) {
             for (uint i = 0; i < pendingMarkets.length; i++) {
                 bytes32 marketId = pendingMarkets[i];
-                if (!positionTaken[marketId]) {
+                if (!_isPositionTaken(marketId)) {
                     return marketId;
                 }
             }
@@ -318,7 +399,7 @@ contract SimpleBettingAgent is BaseAgent {
             try marketOracle.getMostRecentMarket(true) returns (
                 bytes32 id, string memory, string memory, uint, IMarketOracle.MarketStatus status, int8
             ) {
-                if (status == IMarketOracle.MarketStatus.Pending && !positionTaken[id]) {
+                if (status == IMarketOracle.MarketStatus.Pending && !_isPositionTaken(id)) {
                     return id;
                 }
             } catch {
@@ -385,6 +466,38 @@ contract SimpleBettingAgent is BaseAgent {
             totalBetsPlaced,
             totalWinnings
         );
+    }
+    
+    /**
+     * @dev Get current position information for debugging
+     * @return activePositions Array of active positions
+     * @return totalCount Total number of active positions
+     */
+    function getPositionInfo() external view returns (bytes32[POSITIONS_MAX] memory activePositions, uint256 totalCount) {
+        for (uint i = 0; i < POSITIONS_MAX; i++) {
+            if (positions[i].isActive) {
+                activePositions[i] = positions[i].marketId;
+            }
+        }
+        return (activePositions, positionCount);
+    }
+    
+    /**
+     * @dev Get detailed position information by index
+     * @param index The index of the position (0 to POSITIONS_MAX-1)
+     * @return position The position details
+     */
+    function getPositionByIndex(uint256 index) external view returns (BetPosition memory position) {
+        require(index < POSITIONS_MAX, "Index out of bounds");
+        return positions[index];
+    }
+    
+    /**
+     * @dev Check if we have reached maximum active positions
+     * @return True if at maximum capacity
+     */
+    function isAtMaxPositions() external view returns (bool) {
+        return positionCount >= POSITIONS_MAX;
     }
     
     /**

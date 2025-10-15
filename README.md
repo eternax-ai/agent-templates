@@ -195,7 +195,7 @@ RequestInfo memory info = agent.getRequestInfo(requestId);
 - The RPC URL is `https://rpc.eternax.ai`
 - The model available for inference is `llama3.1:8b-instruct-q8_0`
 - The Market Oracle is deployed at `0x4D589B49d8763C9FaaE726d464E3B9F53347BED4`
-- The Prediction Market is deployed at `0xB27B171a18B589E086D2f11148D3F0C8f1f8032c`
+- The Prediction Market is deployed at `0x623e3E052f7cC5df91afcd31ea6195396d41f912`
 - The WETX token is deployed at `0x7d2C41C76dc3EA1E9A0F10B1d0EB3aCB78E22B64`
 
 ## Support

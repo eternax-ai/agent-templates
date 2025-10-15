@@ -25,6 +25,11 @@ interface IPredictionMarket {
     /// @notice Emitted when a market is finalized with pools calculated
     ///Signature 0xbc77879f29c612d96ddfc9737c09b7609fbcea8b388490afa39ed09f50d78624
     event MarketFinalized(bytes32 indexed marketId, uint256 totalPool, uint256 winningPool);
+    
+    /// @notice Emitted when market positions are cleaned up to prevent gas exhaustion
+    ///Signature 0x8a24a4b94cc045ee4b469484dc660874cf432ea68a6da679a001fce25a1eb537
+    event MarketPositionsCleaned(bytes32 indexed marketId, uint256 positionsCleaned);
+    
 
     /// @notice Takes a position on a market
     /// @param _marketId The ID of the market to take position on
@@ -50,10 +55,6 @@ interface IPredictionMarket {
     /// @return position The Position struct
     function getUserMarketPosition(address _user, bytes32 _marketId) external view returns (Position memory);
 
-    /// @notice Gets all positions for a user
-    /// @param _user The address of the user
-    /// @return positions Array of Position structs
-    function getUserPositions(address _user) external view returns (Position[] memory);
 
     /// @notice Gets all positions for a specific market
     /// @param _marketId The ID of the market
