@@ -13,7 +13,7 @@ contract Payer {
     
     address public owner;
     address public payee;
-    IWETX public token;
+    IWETX public immutable token;
     uint256 public totalReceived;
     uint256 public totalPaid;
     uint32 public scheduledTransactionId;
@@ -55,6 +55,12 @@ contract Payer {
         
         totalReceived += msg.value;
         emit TokensReceived(msg.sender, msg.value);
+    }
+    
+    // token.withdraw sends the ETX back with transfer, so it arrives here with 2300 gas;
+    // token is immutable so this check reads no storage
+    receive() external payable {
+        require(msg.sender == address(token), "Only the token can send ETX");
     }
     
     // Function to be called by scheduled execution
