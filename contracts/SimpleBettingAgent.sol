@@ -420,10 +420,11 @@ contract SimpleBettingAgent is BaseAgent {
         // Get total winnings from PredictionMarket (single call)
         try predictionMarket.getUserWinnings(address(this)) returns (uint256 availableWinnings) {
             if (availableWinnings > 0) {
+                uint256 balanceBefore = address(this).balance;
                 // Claim all winnings in single call
                 try predictionMarket.claimWinnings(address(this)) {
-                    // Calculate winnings received
-                    uint256 winnings = address(this).balance;
+                    // Calculate winnings received: the balance already held is not a win
+                    uint256 winnings = address(this).balance - balanceBefore;
                     if (winnings > 0) {
                         totalWinnings += winnings;
                         emit BetWon(bytes32(0), winnings); // Use 0 for bulk claim
